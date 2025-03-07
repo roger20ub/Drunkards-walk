@@ -1,11 +1,14 @@
+import numpy as np 
+import matplotlib.pyplot as plt
+
 # Parameters
 V_l = 10  # Potential on the left boundary
 V_other = 1  # Potential on other boundaries
 
 L = 1  # Size of the box
-N = 70  # Grid points per side
+N = 30  # Grid points per side
 h = L/N  # Step size
-M = 100  # Number of random walks per point
+M = 50  # Number of random walks per point
 
 # Initialize potential grid
 V = np.ones((N + 1, N + 1))*V_other
