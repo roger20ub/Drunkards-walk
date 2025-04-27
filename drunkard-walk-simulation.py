@@ -1,5 +1,5 @@
 import os
-import time
+# import time
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
@@ -123,9 +123,9 @@ class DrunkardWalk:
             (steps, msd) arrays for plotting
         """
         if max_steps <= 0:
-             raise ValueError("max_steps must be positive for MSD analysis.")
+            raise ValueError("max_steps must be positive for MSD analysis.")
         if trials <= 0:
-             raise ValueError("Number of trials must be positive.")
+            raise ValueError("Number of trials must be positive.")
         
         if log_scale:
             # Sample points logarithmically to efficiently analyze diffusion behavior
@@ -133,15 +133,14 @@ class DrunkardWalk:
             num_points = min(50, max_steps) # Limit number of points for efficiency
             step_counts = np.unique(np.logspace(0, np.log10(max_steps), num_points, dtype=int))
             if step_counts[0] == 0 and max_steps > 0 : step_counts[0] = 1 # Ensure first step is at least 1
-            if step_counts[-1] < max_steps: # Make sure the last step is included
-                step_counts = np.append(step_counts, max_steps)
-                step_counts = np.unique(step_counts) # Remove potential duplicates
+            if step_counts[-1] < max_steps: step_counts[-1] = max_steps # Make sure the last step is the max step
         else:
+            # to be done / checked
             step_counts = np.arange(1, max_steps + 1)
             
         # Store squared displacements for each trial at each step_count
         all_squared_displacements = np.zeros((trials, len(step_counts)))
-        actual_max_steps = step_counts[-1] # The true maximum steps needed per trial
+        #actual_max_steps = step_counts[-1] # The true maximum steps needed per trial
 
 
         for trial in tqdm(range(trials), desc="Analyzing diffusion"):
@@ -151,8 +150,8 @@ class DrunkardWalk:
             
             # Simulate one full walk for this trial up to the maximum step count needed
             # Pre-allocate path array for this trial for efficiency
-            trial_path = np.zeros((actual_max_steps + 1, self.dimensions))
-            for i in range(actual_max_steps):
+            trial_path = np.zeros((max_steps + 1, self.dimensions))
+            for i in range(max_steps):
                 temp_walker.step()
                 trial_path[i+1] = temp_walker.current_position
 
@@ -168,14 +167,16 @@ class DrunkardWalk:
 
         # Check for NaNs or Infs which might occur with Levy flights if displacements get huge
         if np.any(np.isnan(msd_values)) or np.any(np.isinf(msd_values)):
-            print("\nWarning: NaNs or Infs encountered in MSD calculation. This might happen with heavy-tailed distributions (like Levy) if displacements become extremely large. Consider reducing max_steps or increasing trials.")
+            print("\nWarning: NaNs or Infs encountered in MSD calculation. " \
+            "This might happen with heavy-tailed distributions (like Levy) if displacements become extremely large. " \
+            "Consider reducing max_steps or increasing trials.")
             # Optional: handle or filter NaNs/Infs if needed for plotting
             # msd_values = np.nan_to_num(msd_values, nan=0.0, posinf=0.0, neginf=0.0)
 
 
         return step_counts, msd_values
 
-    def plot_path(self, show: bool = True, save_path: Optional[str] = None) -> None:
+    def plot_path(self, steps: int, show: bool = True, save_path: Optional[str] = None) -> None:
         """
         Plot the random walk path.
         
@@ -199,7 +200,7 @@ class DrunkardWalk:
             ax.plot(steps_axis, path_array[:, 0], '-o', alpha=0.6, markersize=3)
             ax.set_xlabel('Step')
             ax.set_ylabel('Position')
-            ax.set_title(f'1D Random Walk ({self.step_type})')
+            ax.set_title(f'1D Random Walk, {steps} steps ({self.step_type})')
             ax.grid(True)
             
         elif self.dimensions == 2:
@@ -210,7 +211,7 @@ class DrunkardWalk:
             ax.axis('equal')
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
-            ax.set_title(f'2D Random Walk ({self.step_type})')
+            ax.set_title(f'2D Random Walk, {steps} steps ({self.step_type})')
             ax.legend(loc='upper right') # Explicit legend location
             ax.grid(True)
             
@@ -223,7 +224,7 @@ class DrunkardWalk:
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
             ax.set_zlabel('Z')
-            ax.set_title(f'3D Random Walk ({self.step_type})')
+            ax.set_title(f'3D Random Walk, {steps} steps ({self.step_type})')
 
             # --- Improved 3D Axis Scaling ---
             x_min, x_max = path_array[:, 0].min(), path_array[:, 0].max()
@@ -366,7 +367,8 @@ def plot_ensemble_results(final_positions: np.ndarray, displacements: np.ndarray
     fig.tight_layout()
     plt.show()
 
-def create_animation(walker_steps: PathArray, dimensions: int, fps: int = 30, show_animation: bool = True, save_path: Optional[str] = None):
+def create_animation(walker_steps: PathArray, dimensions: int, step_type: str, fps: int = 30, show_animation: bool = True, 
+                     save_animation_path: Optional[str] = None, save_plot_path: Optional[str] = None):
     """
     Create and save an animation of the random walk.
     
@@ -376,12 +378,16 @@ def create_animation(walker_steps: PathArray, dimensions: int, fps: int = 30, sh
         List of walker positions at each step
     dimensions : int
         Number of dimensions (1, 2, or 3)
+    step_type : str
+        Type of step distribution (for title)
     fps : int
         Frames per second for the animation
     show_animation : bool
         Whether to display the animation
-    save_path : str or None
+    save_animation_path : str or None
         Path to save the animation file (must end with .mp4)
+    save_plot_path : str or None
+        Path to save the last frame of animation (must end with .png)
         
     Returns:
     --------
@@ -391,33 +397,40 @@ def create_animation(walker_steps: PathArray, dimensions: int, fps: int = 30, sh
     steps = np.array(walker_steps)
     
     fig = plt.figure(figsize=(10, 8))
+    static_title = f'{dimensions}D Random Walk, {len(steps)-1} steps ({step_type})'
     
     if dimensions == 1:
         ax = fig.add_subplot(111)
-        line, = ax.plot([], [], '-o', alpha=0.7, markersize=3)
-        point, = ax.plot([], [], 'ro', markersize=8)
-        
+        line, = ax.plot([], [], '-o', alpha=0.7, markersize=3, label='Path')
+        point, = ax.plot([], [], 'ro', markersize=6, label='Current')
+        time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes, ha='left', va='top') # Step counter text
+
         def init():
-            x_range = np.arange(len(steps))
+            #x_range = np.arange(len(steps))
             y_min, y_max = steps.min(), steps.max()
             margin = max(1, (y_max - y_min) * 0.1)
             ax.set_xlim(0, len(steps))
             ax.set_ylim(y_min - margin, y_max + margin)
             ax.set_xlabel('Step')
             ax.set_ylabel('Position')
-            ax.set_title('1D Random Walk')
-            return line, point
+            ax.set_title(static_title)
+            ax.legend(loc='upper right')
+            time_text.set_text('')
+            return line, point, time_text
             
         def update(frame):
             line.set_data(range(frame+1), steps[:frame+1])
             point.set_data([frame], [steps[frame]])
-            return line, point
+            time_text.set_text(f'Step: {frame}')
+            return line, point, time_text
             
     elif dimensions == 2:
         ax = fig.add_subplot(111)
-        line, = ax.plot([], [], '-', alpha=0.7)
-        point, = ax.plot([], [], 'ro', markersize=8)
-        start, = ax.plot([], [], 'go', markersize=10, label='Start')
+        line, = ax.plot([], [], '-', alpha=0.7, label='Path')
+        point, = ax.plot([], [], 'ro', markersize=8, label='Current')
+        start, = ax.plot([], [], 'go', markersize=8, label='Start')
+        time_text = ax.text(0.02, 0.95, '', transform=ax.transAxes, ha='left', va='top') # Step counter text
+
         
         x_min, x_max = steps[:, 0].min(), steps[:, 0].max()
         y_min, y_max = steps[:, 1].min(), steps[:, 1].max()
@@ -431,23 +444,26 @@ def create_animation(walker_steps: PathArray, dimensions: int, fps: int = 30, sh
             ax.set_ylim(y_min - margin_y, y_max + margin_y)
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
-            ax.set_title('2D Random Walk')
+            ax.set_title(static_title)
             ax.grid(True)
             start.set_data([steps[0, 0]], [steps[0, 1]])
             ax.legend()
-            return line, point, start
+            time_text.set_text('')
+            return line, point, start, time_text
             
         def update(frame):
             line.set_data(steps[:frame+1, 0], steps[:frame+1, 1])
             point.set_data([steps[frame, 0]], [steps[frame, 1]])
-            return line, point, start
+            time_text.set_text(f'Step: {frame}')
+            return line, point, start, time_text
             
     elif dimensions == 3:
         ax = fig.add_subplot(111, projection='3d')
-        line, = ax.plot([], [], [], '-', alpha=0.7)
-        point = ax.scatter([], [], [], color='r', s=50)
-        start = ax.scatter([], [], [], color='g', s=100, label='Start')
-        
+        line, = ax.plot([], [], [], '-', alpha=0.7, label='Path')
+        point = ax.scatter([], [], [], color='r', s=50, label='Current', depthshade=True)
+        start = ax.scatter([], [], [], color='g', s=50, label='Start', depthshade=True)
+        time_text = ax.text2D(0.02, 0.95, '', transform=ax.transAxes, ha='left', va='top') # Step counter text
+
         x_min, x_max = steps[:, 0].min(), steps[:, 0].max()
         y_min, y_max = steps[:, 1].min(), steps[:, 1].max()
         z_min, z_max = steps[:, 2].min(), steps[:, 2].max()
@@ -458,35 +474,64 @@ def create_animation(walker_steps: PathArray, dimensions: int, fps: int = 30, sh
         margin_z = max(1, (z_max - z_min) * 0.1)
         
         def init():
+            point._offsets3d = ([], [], []) # Reset scatter data
+            start._offsets3d = ([steps[0, 0]], [steps[0, 1]], [steps[0, 2]])
             ax.set_xlim(x_min - margin_x, x_max + margin_x)
             ax.set_ylim(y_min - margin_y, y_max + margin_y)
             ax.set_zlim(z_min - margin_z, z_max + margin_z)
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
             ax.set_zlabel('Z')
-            ax.set_title('3D Random Walk')
-            start._offsets3d = ([steps[0, 0]], [steps[0, 1]], [steps[0, 2]])
-            ax.legend()
-            return line, point, start
+            ax.set_title(static_title)
+            ax.legend(loc='upper right')
+            time_text.set_text('')
+            return line, point, start, time_text
             
         def update(frame):
             line.set_data(steps[:frame+1, 0], steps[:frame+1, 1])
             line.set_3d_properties(steps[:frame+1, 2])
             point._offsets3d = ([steps[frame, 0]], [steps[frame, 1]], [steps[frame, 2]])
-            return line, point, start
+            time_text.set_text(f'Step: {frame}')
+            return line, point, start, time_text
     
     # Create the animation
+    blit_effective = True if dimensions != 3 else False
     anim = animation.FuncAnimation(fig, update, frames=len(steps),
-                                  init_func=init, blit=True, interval=1000/fps,
+                                  init_func=init, blit=blit_effective, interval=1000/fps,
                                   repeat=False)
     
     # Save the animation if a path is provided
-    if save_path:
-        # Make sure we're using a supported codec
-        writer = FFMpegWriter(fps=fps)
-        anim.save(save_path, writer=writer)
-        print(f"Animation saved to {save_path}")
+    if save_animation_path:
+            try:
+                # Ensure the directory exists
+                save_dir = os.path.dirname(save_animation_path)
+                if save_dir: os.makedirs(save_dir, exist_ok=True) # Only make dirs if path includes one
+                # Choose a writer (FFMpeg is common)
+                writer = FFMpegWriter(fps=fps)
+                print(f"Saving animation to {save_animation_path} (using {writer.__class__.__name__})...")
+                anim.save(save_animation_path, writer=writer, dpi=150) # Lower dpi for faster save?
+                print(f"Animation successfully saved.")
+            except FileNotFoundError:
+                print("\nError: 'ffmpeg' command not found.")
+                print("Please install ffmpeg to save animations.")
+                print("  - On Debian/Ubuntu: sudo apt install ffmpeg")
+                print("  - On macOS (using Homebrew): brew install ffmpeg")
+                print("  - On Windows: Download from ffmpeg.org and add to PATH.\n")
+            except Exception as e:
+                print(f"\nError saving animation: {e}")
+                print("Ensure ffmpeg is installed correctly and working.")
+                print(f"Try running with --no-blit if blitting was enabled ({blit_effective}).\n")
     
+    if save_plot_path:
+        try:
+            # Ensure the directory exists
+            save_dir = os.path.dirname(save_plot_path)
+            if save_dir: os.makedirs(save_dir, exist_ok=True) # Only make dirs if path includes one
+            print(f"Saving plot to {save_plot_path}...")
+            fig.savefig(save_plot_path)
+        except Exception as e:
+            print(f"\nError saving plot: {e}")
+
     if show_animation:
         plt.show()
     else:
@@ -541,7 +586,7 @@ def main():
         args.walkers = 1
     
     # --- Simulation ---
-    start_time = time.time()
+    #start_time = time.time()
 
     # Run simulation based on arguments
     if args.walkers == 1:
@@ -553,17 +598,17 @@ def main():
         
         # Simulate the walk fully first if animating or analyzing MSD
         if args.animate or args.record_animation or args.analyze_msd:
-             walker.walk(args.steps)
-             walker_path_array = walker.get_path_array() # Get path after full walk
-             print(f"Simulation finished. Final position: {walker.current_position}")
-             print(f"Final displacement from origin: {walker.displacement():.3f}")
+            walker.walk(args.steps)
+            walker_path_array = walker.get_path_array() # Get path after full walk
+            print(f"Simulation finished. Final position: {walker.current_position}")
+            print(f"Final displacement from origin: {walker.displacement():.3f}")
         else:
-             # Just walk and plot if not animating/analyzing
-             walker.walk(args.steps)
-             walker_path_array = walker.get_path_array()
-             print(f"Simulation finished. Final position: {walker.current_position}")
-             print(f"Final displacement from origin: {walker.displacement():.3f}")
-             walker.plot_path(show=not args.save_plot, save_path=args.save_plot)
+            # Just walk and plot if not animating/analyzing
+            walker.walk(args.steps)
+            walker_path_array = walker.get_path_array()
+            print(f"Simulation finished. Final position: {walker.current_position}")
+            print(f"Final displacement from origin: {walker.displacement():.3f}")
+            walker.plot_path(args.steps, show=not args.save_plot, save_path=args.save_plot)
         
 
         # --- Animation ---
@@ -572,10 +617,11 @@ def main():
                 # walker_path=walker_path_array,
                 walker_steps=walker_path_array, # Corrected argument name
                 dimensions=args.dimensions,
-                # step_type=args.step_type,
+                step_type=args.step_type,
                 fps=args.fps,
                 show_animation=args.animate,
-                save_path=args.record_animation
+                save_animation_path=args.record_animation,
+                save_plot_path=args.save_plot
             )
             
         if args.analyze_msd:
@@ -637,8 +683,8 @@ def main():
         
         # plot_ensemble_results(final_positions, displacements, args.dimensions)
 
-    end_time = time.time()
-    print(f"\nTotal execution time: {end_time - start_time:.2f} seconds.")
+    #end_time = time.time()
+    #print(f"\nTotal execution time: {end_time - start_time:.2f} seconds.")
     # Explicitly clean up plots at the very end if any are lingering
     plt.close('all')
 
