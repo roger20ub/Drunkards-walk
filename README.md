@@ -51,3 +51,10 @@ Run the script from the command line.
 
 ```bash
 python drunkard-walk-simulation.py [options]
+```
+
+To see the possible arguments
+
+```bash
+python drunkard-walk-simulation.py -h
+```
