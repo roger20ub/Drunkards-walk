@@ -31,7 +31,7 @@ class DrunkardWalk:
         seed: Optional[int] = None,
     ):
         """
-        Initialize the random walk simulator.
+        Initialize the random walk simulator
 
         Parameters:
         -----------
@@ -43,10 +43,10 @@ class DrunkardWalk:
             Random seed for reproducibility
         """
         if dimensions not in [1, 2, 3]:
-            raise ValueError("Dimensions must be 1, 2, or 3")
+            raise ValueError("Dimensions must be 1, 2, or 3.")
 
         if step_type not in ["uniform", "gaussian", "levy"]:
-            raise ValueError("Step type must be 'uniform', 'gaussian', or 'levy'")
+            raise ValueError("Step type must be 'uniform', 'gaussian', or 'levy'.")
 
         self.dimensions: int = dimensions
         self.step_type: str = step_type
@@ -56,12 +56,12 @@ class DrunkardWalk:
 
     # To be implemented in future versions
     def reset(self) -> None:
-        """Reset the walker to the origin."""
+        """Reset the walker to the origin"""
         self.current_position = np.zeros(self.dimensions)
         self.path = [np.copy(self.current_position)]
 
     def _generate_step(self) -> Position:
-        """Generate a random step based on the specified distribution."""
+        """Generate a random step based on the specified distribution"""
         if self.step_type == "uniform":
             # Uniform step: randomly choose one of the 2*dimensions possible unit steps
             step = np.zeros(self.dimensions)
@@ -76,18 +76,18 @@ class DrunkardWalk:
 
         elif self.step_type == "levy":
             # Lévy flight: using a Cauchy distribution (x_0=0, gamma=1)
-            # This results in occasional very large steps (heavy tails).
+            # This results in occasional very large steps (heavy tails)
             return self.rng.standard_cauchy(self.dimensions)
 
     def step(self) -> None:
-        """Take a single step and update the current position."""
+        """Take a single step and update the current position"""
         step = self._generate_step()
         self.current_position += step
         self.path.append(np.copy(self.current_position))
 
     def walk(self, steps: int) -> Position:
         """
-        Perform a random walk for the specified number of steps.
+        Perform a random walk for the specified number of steps
 
         Parameters:
         -----------
@@ -106,18 +106,18 @@ class DrunkardWalk:
         return self.current_position
 
     def get_path_array(self) -> PathArray:
-        """Return the path as a numpy array."""
+        """Return the path as a numpy array"""
         return np.array(self.path)
 
     def displacement(self) -> float:
-        """Calculate the final displacement (Euclidean distance) from the origin."""
+        """Calculate the final displacement (Euclidean distance) from the origin"""
         return np.linalg.norm(self.current_position)
 
     def analyze_msd(
         self, trials: int = 50, max_steps: int = 1000, log_scale: bool = True
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Analyze the mean square displacement (MSD) over multiple trials.
+        Analyze the mean square displacement (MSD) over multiple trials
 
         Parameters:
         -----------
@@ -135,7 +135,7 @@ class DrunkardWalk:
         """
         if max_steps <= 0:
             raise ValueError(
-                "Maximum number of steps must be positive for MSD analysis."
+                "Maximum number of steps must be positive for MSD analysis"
             )
         if trials <= 0:
             raise ValueError("Number of trials must be positive.")
@@ -203,7 +203,7 @@ class DrunkardWalk:
         self, steps: int, show: bool = True, save_path: Optional[str] = None
     ) -> None:
         """
-        Plot the random walk path.
+        Plot the random walk path
 
         Parameters:
         -----------
@@ -314,9 +314,9 @@ class DrunkardWalk:
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
                 plt.savefig(save_path, dpi=300, bbox_inches="tight")
-                print(f"Plot saved to {save_path}")
+                print(f"Plot saved to {save_path}.")
             except Exception as e:
-                print(f"Error saving plot to {save_path}: {e}")
+                print(f"Error saving plot to {save_path}: {e}.")
 
         if show:
             plt.show()
@@ -332,7 +332,7 @@ def run_ensemble_simulation(
     seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, float]:
     """
-    Simulate multiple independent random walkers and analyze their collective behavior.
+    Simulate multiple independent random walkers and analyze their collective behavior
 
     Parameters:
     -----------
@@ -393,7 +393,7 @@ def plot_ensemble_results(
     final_positions: np.ndarray, displacements: np.ndarray, dimensions: int
 ) -> Figure:
     """
-    Plot results from an ensemble simulation.
+    Plot results from an ensemble simulation
 
     Parameters:
     -----------
@@ -489,7 +489,7 @@ def create_animation(
     save_plot_path: Optional[str] = None,
 ) -> Animation:
     """
-    Create and save an animation of the random walk.
+    Create and save an animation of the random walk
 
     Parameters:
     -----------
@@ -651,13 +651,10 @@ def create_animation(
             print("Please install ffmpeg to save animations.")
             print("  - On Debian/Ubuntu: sudo apt install ffmpeg")
             print("  - On macOS (using Homebrew): brew install ffmpeg")
-            print("  - On Windows: Download from ffmpeg.org and add to PATH.\n")
+            print("  - On Windows: Download from ffmpeg.org and add to PATH\n")
         except Exception as e:
-            print(f"\nError saving animation: {e}")
+            print(f"\nError saving animation: {e}.")
             print("Ensure ffmpeg is installed correctly and working.")
-            print(
-                f"Try running with --no-blit if blitting was enabled ({blit_effective}).\n"
-            )
 
     if save_plot_path:
         try:
@@ -670,7 +667,7 @@ def create_animation(
             print(f"Saving plot to {save_plot_path}...")
             fig.savefig(save_plot_path)
         except Exception as e:
-            print(f"\nError saving plot: {e}")
+            print(f"\nError saving plot: {e}.")
 
     if show_animation:
         plt.show()
@@ -681,7 +678,7 @@ def create_animation(
 
 
 def main():
-    """Main function to parse arguments and run the simulation."""
+    """Main function to parse arguments and run the simulation"""
 
     parser = argparse.ArgumentParser(
         description="Simulate and analyze Drunkard Walks in 1D, 2D, or 3D.",
@@ -729,7 +726,7 @@ def main():
         help="Show an animation of the walk (only for single walker).",
     )
     parser.add_argument(
-        "--fps", type=int, default=30, help="Frames per second for the animation"
+        "--fps", type=int, default=30, help="Frames per second for the animation."
     )
     parser.add_argument(
         "--save-animation",
@@ -901,9 +898,9 @@ def main():
                     if save_dir:
                         os.makedirs(save_dir, exist_ok=True)
                     fig.savefig(args.save_plot, dpi=300, bbox_inches="tight")
-                    print(f"Ensemble plot saved to {args.save_plot}")
+                    print(f"Ensemble plot saved to {args.save_plot}.")
                 except Exception as e:
-                    print(f"Error saving ensemble plot to {args.save_plot}: {e}")
+                    print(f"Error saving ensemble plot to {args.save_plot}: {e}.")
 
     else:  # args.walkers == 1, no analyze_msd
 
