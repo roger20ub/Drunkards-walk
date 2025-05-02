@@ -12,7 +12,7 @@ Position = np.ndarray  # Position vector
 Path = List[Position]  # List of positions
 PathArray = np.ndarray  # Path represented as numpy array
 Figure = plt.Figure  # Figure (matplotlib)
-Animation = animation.FuncAnimation # Animation class (matplotlib)  
+Animation = animation.FuncAnimation  # Animation class (matplotlib)
 
 
 # DrunkardWalk class definition
@@ -766,7 +766,6 @@ def main():
         args.walkers = 1
 
     # --- Simulation and Analysis ---
-
     if args.analyze_msd:
 
         # --- MSD Analysis (Ensemble or Single Walker) ---
@@ -781,6 +780,31 @@ def main():
             steps_msd, msd_values = walker_for_msd.analyze_msd(
                 trials=args.walkers, max_steps=args.steps, log_scale=True
             )  # log_scale=True as default
+
+            # --- Calculate Diffusion Coefficient ---
+            # Avoid very first points which might not be in the linear regime
+            fit_start_index = len(steps_msd) // 2
+            if fit_start_index < 2: # Ensure at least a few points
+                fit_start_index = max(1, len(steps_msd) - 10)
+
+            valid_indices = ~np.isnan(msd_values[fit_start_index:]) & ~np.isinf(msd_values[fit_start_index:])
+            steps_to_fit = steps_msd[fit_start_index:][valid_indices]
+            msd_to_fit = msd_values[fit_start_index:][valid_indices]
+
+            diffusion_coefficient = np.nan # Default if fails
+
+            if len(steps_to_fit) >= 2: # Need at least two points for a linear fit
+                # Fit a polynomial of degree 1 (a line)
+                # polyfit returns [slope, intercept]
+                coeffs = np.polyfit(steps_to_fit, msd_to_fit, 1)
+                slope = coeffs[0]
+
+                # Calculate D
+                diffusion_coefficient = slope / (2 * args.dimensions)
+                print(f"\nEstimated Diffusion Coefficient (D): {diffusion_coefficient:.4e}")
+                print(f"(Based on linear fit of MSD from step {steps_to_fit[0]} to {steps_to_fit[-1]})")
+            else:
+                print("\nWarning: Could not perform linear fit for Diffusion Coefficient (insufficient data points).")
 
             plt.figure(figsize=(10, 6))
             plt.loglog(steps_msd, msd_values, "o-")
@@ -845,7 +869,7 @@ def main():
             )
             if args.step_type == "levy":
                 # for single Levy walk, SD vs steps can be very noisy (theoretical expected MSD is more meaningful)
-                # we can still plot expected linear growth for comparison.
+                # we can still plot expected linear growth for comparison
                 pass  # to be done
 
             plt.xlabel("Steps")
